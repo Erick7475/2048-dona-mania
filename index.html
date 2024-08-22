@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego 2048</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+            font-family: "Poppins", sans-serif;
+        }
+        body {
+            height: 100vh;
+            background-color: #faf8ef;
+            overflow-y: hidden;
+        }
+        .heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1em;
+        }
+        h1 {
+            color: #776e65;
+            font-size: 4em;
+        }
+        .container {
+            position: absolute;
+            transform: translate(-50%, -50%) scale(0.8);
+            top: 50%;
+            left: 50%;
+        }
+        .score-container {
+            color: #776e65;
+        }
+        #score {
+            font-weight: 600;
+        }
+        .grid {
+            width: 25em;
+            height: 25em;
+            background-color: #cdc1b5;
+            border: 5px solid #bbada0;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            border-radius: 0.5em;
+        }
+        .box {
+            transition: background-color 0.3s, color 0.3s, transform 0.3s;
+            width: 97.5px;
+            height: 97.5px;
+            border: 5px solid #bbada0;
+            font-size: 40px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #cdc1b5;
+        }
+        .box-2 { background-color: #eee4da; color: #776e65; }
+        .box-4 { background-color: #eee1c9; color: #776e65; }
+        .box-8 { background-color: #f3b27a; color: white; }
+        .box-16 { background-color: #f69664; color: white; }
+        .box-32 { background-color: #f77c5f; color: white; }
+        .box-64 { background-color: #f75f3b; color: white; }
+        .box-128 { background-color: #edd073; color: white; }
+        .box-256 { background-color: #edcc63; color: white; }
+        .box-512 { background-color: #edc651; color: white; }
+        .box-1024 { background-color: #eec744; color: white; }
+        .box-2048 { background-color: #ecc230; color: white; }
+        .cover-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-size: 2em;
+        }
+        #start-button {
+            background-color: #8f7a66;
+            padding: 1em 0.8em;
+            border-radius: 0.5em;
+            border: none;
+            font-size: 1em;
+            color: #ffffff;
+            cursor: pointer;
+        }
+        .hide {
+            display: none;
+        }
+        a {
+            background-color: #8f7a66;
+            color: #ffffff;
+            display: block;
+            padding: 1em 0;
+            text-align: center;
+            text-decoration: none;
+            margin-top: 1em;
+            border-radius: 0.4em;
+        }
+        #timer {
+            font-size: 1.5em;
+            margin: 0.5em 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container hide">
+        <div class="heading">
+            <h1>2048</h1>
+            <div class="score-container">
+                Puntuación:
+                <span id="score">0</span>
+            </div>
+        </div>
+        <div id="timer">01:30</div>
+        <div class="grid"></div>
+    </div>
+    <div class="cover-screen">
+        <h2 id="over-text" class="hide">¡Game Over!</h2>
+        <p id="result"></p>
+        <button id="start-button">Iniciar Juego</button>
+    </div>
+    <script>
+        const rows = 4;
+        const columns = 4;
+        let matrix = [];
+        let score = 0;
+        let timerInterval;
+        const targetScore = 800;
+        const timeLimit = 90; // Tiempo en segundos (1 minuto y 30 segundos)
+        const grid = document.querySelector('.grid');
+        const startButton = document.getElementById('start-button');
+        const container = document.querySelector('.container');
+        const coverScreen = document.querySelector('.cover-screen');
+        const result = document.getElementById('result');
+        const overText = document.getElementById('over-text');
+        const timerDisplay = document.getElementById('timer');
+
+        const createGrid = () => {
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < columns; j++) {
+                    const boxDiv = document.createElement('div');
+                    boxDiv.classList.add('box');
+                    boxDiv.setAttribute('data-position', `${i}_${j}`);
+                    grid.appendChild(boxDiv);
+                }
+            }
+        };
+
+        const startGame = () => {
+            resetGame();
+            let now = Date.now();
+            let end = now + timeLimit * 1000;
+            timerInterval = setInterval(() => {
+                let remaining = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+                let minutes = Math.floor(remaining / 60);
+                let seconds = remaining % 60;
+                timerDisplay.innerText = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                if (remaining <= 0) {
+                    clearInterval(timerInterval);
+                    coverScreen.classList.remove('hide');
+                    container.classList.add('hide');
+                    overText.classList.remove('hide');
+                    result.innerText = `Tiempo agotado. Puntuación final: ${score}`;
+                    startButton.innerText = 'Reiniciar Juego';
+                }
+            }, 1000);
+        };
+
+        const resetGame = () => {
+            matrix = Array.from({ length: rows }, () => Array(columns).fill(0));
+            score = 0;
+            document.getElementById('score').innerText = score;
+            coverScreen.classList.add('hide');
+            container.classList.remove('hide');
+            overText.classList.add('hide');
+            grid.querySelectorAll('.box').forEach(box => {
+                box.innerHTML = '';
+                box.className = 'box';
+            });
+            generateTwo();
+            generateTwo();
+        };
+
+        const updateGrid = () => {
+            matrix.forEach((row, rIndex) => {
+                row.forEach((value, cIndex) => {
+                    let element = document.querySelector(`[data-position='${rIndex}_${cIndex}']`);
+                    if (value > 0) {
+                        element.innerHTML = value;
+                        element.className = 'box';
+                        element.classList.add(`box-${value}`);
+                    } else {
+                        element.innerHTML = '';
+                        element.classList.remove(...element.classList);
+                        element.classList.add('box');
+                    }
+                });
+            });
+        };
+
+        const generateTwo = () => {
+            if (hasEmptyBox()) {
+                let randomRow = Math.floor(Math.random() * rows);
+                let randomCol = Math.floor(Math.random() * columns);
+                if (matrix[randomRow][randomCol] === 0) {
+                    matrix[randomRow][randomCol] = 2;
+                    let element = document.querySelector(`[data-position='${randomRow}_${randomCol}']`);
+                    element.innerHTML = 2;
+                    element.classList.add('box-2');
+                } else {
+                    generateTwo();
+                }
+            } else {
+                gameOverCheck();
+            }
+        };
+
+        const generateFour = () => {
+            if (hasEmptyBox()) {
+                let randomRow = Math.floor(Math.random() * rows);
+                let randomCol = Math.floor(Math.random() * columns);
+                if (matrix[randomRow][randomCol] === 0) {
+                    matrix[randomRow][randomCol] = 4;
+                    let element = document.querySelector(`[data-position='${randomRow}_${randomCol}']`);
+                    element.innerHTML = 4;
+                    element.classList.add('box-4');
+                } else {
+                    generateFour();
+                }
+            } else {
+                gameOverCheck();
+            }
+        };
+
+        const hasEmptyBox = () => {
+            return matrix.some(row => row.includes(0));
+        };
+
+        const checkMovement = (before, after) => {
+            return !JSON.stringify(before) === JSON.stringify(after);
+        };
+
+        const gameOverCheck = () => {
+            if (!hasEmptyBox() && !canMove()) {
+                coverScreen.classList.remove('hide');
+                container.classList.add('hide');
+                overText.classList.remove('hide');
+                result.innerText = `Game Over. Puntuación final: ${score}`;
+                startButton.innerText = 'Reiniciar Juego';
+            }
+        };
+
+        const canMove = () => {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < columns; c++) {
+                    if (matrix[r][c] === 0) return true;
+                    if (r < rows - 1 && matrix[r][c] === matrix[r + 1][c]) return true;
+                    if (c < columns - 1 && matrix[r][c] === matrix[r][c + 1]) return true;
+                }
+            }
+            return false;
+        };
+
+        const swipeRight = () => {
+            for (let i = 0; i < rows; i++) {
+                let arr = matrix[i].filter(val => val > 0);
+                for (let j = arr.length - 1; j >= 0; j--) {
+                    let pos = j;
+                    while (pos < arr.length - 1 && arr[pos] === arr[pos + 1]) {
+                        arr[pos] += arr[pos + 1];
+                        arr[pos + 1] = 0;
+                        pos++;
+                        score += arr[pos];
+                        document.getElementById('score').innerText = score;
+                    }
+                }
+                arr = arr.filter(val => val > 0);
+                while (arr.length < columns) {
+                    arr.unshift(0);
+                }
+                matrix[i] = arr;
+            }
+        };
+
+        const swipeLeft = () => {
+            for (let i = 0; i < rows; i++) {
+                let arr = matrix[i].filter(val => val > 0);
+                for (let j = 0; j < arr.length - 1; j++) {
+                    let pos = j;
+                    while (pos > 0 && arr[pos] === arr[pos - 1]) {
+                        arr[pos - 1] += arr[pos];
+                        arr[pos] = 0;
+                        pos--;
+                        score += arr[pos];
+                        document.getElementById('score').innerText = score;
+                    }
+                }
+                arr = arr.filter(val => val > 0);
+                while (arr.length < columns) {
+                    arr.push(0);
+                }
+                matrix[i] = arr;
+            }
+        };
+
+        const swipeUp = () => {
+            for (let j = 0; j < columns; j++) {
+                let arr = matrix.map(row => row[j]).filter(val => val > 0);
+                for (let i = 0; i < arr.length - 1; i++) {
+                    let pos = i;
+                    while (pos < arr.length - 1 && arr[pos] === arr[pos + 1]) {
+                        arr[pos] += arr[pos + 1];
+                        arr[pos + 1] = 0;
+                        pos++;
+                        score += arr[pos];
+                        document.getElementById('score').innerText = score;
+                    }
+                }
+                arr = arr.filter(val => val > 0);
+                while (arr.length < rows) {
+                    arr.push(0);
+                }
+                for (let i = 0; i < rows; i++) {
+                    matrix[i][j] = arr[i];
+                }
+            }
+        };
+
+        const swipeDown = () => {
+            for (let j = 0; j < columns; j++) {
+                let arr = matrix.map(row => row[j]).filter(val => val > 0);
+                for (let i = arr.length - 1; i >= 1; i--) {
+                    let pos = i;
+                    while (pos > 0 && arr[pos] === arr[pos - 1]) {
+                        arr[pos] += arr[pos - 1];
+                        arr[pos - 1] = 0;
+                        pos--;
+                        score += arr[pos];
+                        document.getElementById('score').innerText = score;
+                    }
+                }
+                arr = arr.filter(val => val > 0);
+                while (arr.length < rows) {
+                    arr.unshift(0);
+                }
+                for (let i = 0; i < rows; i++) {
+                    matrix[i][j] = arr[i];
+                }
+            }
+        };
+
+        const move = (direction) => {
+            const matrixBeforeMove = JSON.parse(JSON.stringify(matrix));
+            if (direction === 'right') swipeRight();
+            if (direction === 'left') swipeLeft();
+            if (direction === 'up') swipeUp();
+            if (direction === 'down') swipeDown();
+
+            if (checkMovement(matrixBeforeMove, matrix)) {
+                generateTwo();
+                updateGrid();
+                if (score >= targetScore) {
+                    coverScreen.classList.remove('hide');
+                    container.classList.add('hide');
+                    overText.classList.remove('hide');
+                    result.innerText = `¡Ganaste! Puntuación final: ${score}`;
+                    startButton.innerText = 'Reiniciar Juego';
+                    clearInterval(timerInterval); // Detener el temporizador
+                } else {
+                    gameOverCheck();
+                }
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            createGrid();
+            startButton.addEventListener('click', () => {
+                startGame();
+                startButton.disabled = true; // Deshabilitar el botón de inicio
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'ArrowUp') move('up');
+                if (event.key === 'ArrowDown') move('down');
+                if (event.key === 'ArrowLeft') move('left');
+                if (event.key === 'ArrowRight') move('right');
+            });
+        });
+    </script>
+</body>
+</html>
